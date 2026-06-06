@@ -27,45 +27,40 @@ export default function TransactionsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    console.log('TransactionsPage: useEffect running');
     const checkAuthAndFetch = async () => {
-      console.log('TransactionsPage: Checking auth...');
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        console.log('TransactionsPage: Auth failed, redirecting to login', userError);
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
         router.push('/login');
         return;
       }
 
-      console.log('TransactionsPage: User authenticated, fetching transactions');
-      await fetchTransactions();
+      const token = session.access_token;
+      await fetchTransactions(token);
     };
 
     checkAuthAndFetch();
   }, [router]);
 
-  const fetchTransactions = async () => {
-    console.log('TransactionsPage: fetchTransactions called');
+  const fetchTransactions = async (token: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/transactions');
-      console.log(`TransactionsPage: fetch response status: ${res.status}`);
+      const res = await fetch('/api/transactions', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.error(`TransactionsPage: API error ${res.status}:`, errorText);
-        setError(`Failed to load transactions. Status: ${res.status}. ${errorText}`);
+        setError(`Failed to load transactions. Status: ${res.status}.`);
         setLoading(false);
         return;
       }
 
       const data = await res.json();
-      console.log(`TransactionsPage: Fetched ${data.length} transactions`);
       setTransactions(data);
     } catch (err) {
-      console.error('TransactionsPage: Fetch error', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setLoading(false);

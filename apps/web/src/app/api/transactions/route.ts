@@ -1,29 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { prisma } from "@/lib/prisma";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export async function GET(request: NextRequest) {
   try {
-    // Create a Supabase client using the request cookies
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return request.cookies.get(name)?.value;
-          },
-          set() { /* not needed for GET */ },
-          remove() { /* not needed */ },
-        },
-      }
-    );
+    // Get token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.split(' ')[1];
 
-    const { data: { user }, error } = await supabase.auth.getUser();
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized – missing token" }, { status: 401 });
+    }
+
+    // Verify token and get user
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
       console.error("Auth error:", error?.message);
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized – invalid token" }, { status: 401 });
     }
 
     const transactions = await prisma.transaction.findMany({
