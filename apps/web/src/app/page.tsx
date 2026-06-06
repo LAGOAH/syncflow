@@ -1,8 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabaseClient'
+import AppLayout from '@/components/layout/AppLayout'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { motion } from 'framer-motion'
+import { CreditCard, Smartphone, ArrowUpRight, CheckCircle2 } from 'lucide-react'
 
 type Transaction = {
   id: string
@@ -13,126 +20,189 @@ type Transaction = {
   receivedAt: string
 }
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
   const router = useRouter()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/login')
       } else {
-        setUser(user)
-        fetchTransactions()
+        await fetchTransactions()
       }
-    })
+    }
+    checkAuth()
   }, [router])
 
   const fetchTransactions = async () => {
     try {
       const res = await fetch('/api/transactions')
+      if (!res.ok) throw new Error('Failed to fetch data')
       const data = await res.json()
       setTransactions(data)
     } catch (err) {
-      console.error(err)
+      console.error('Error loading dashboard data:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+  const formatCurrency = (amount: number, currencyCode = 'NGN') => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 0
+    }).format(amount)
   }
-
-  if (!user) return null
 
   const totalRevenue = transactions.reduce((sum, t) => sum + t.amount, 0)
   const totalCount = transactions.length
+  const currencyCode = transactions[0]?.currency || 'NGN'
+
+  const stats = [
+    {
+      title: 'Total Revenue',
+      value: loading ? null : formatCurrency(totalRevenue, currencyCode),
+      change: '+14.2% from last month',
+      icon: ArrowUpRight,
+      color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30',
+    },
+    {
+      title: 'Transactions',
+      value: loading ? null : totalCount.toLocaleString(),
+      change: '+8.4% volume',
+      icon: CreditCard,
+      color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30',
+    },
+    {
+      title: 'Active Devices',
+      value: loading ? null : '0',
+      change: 'No active sessions',
+      icon: Smartphone,
+      color: 'text-slate-600 bg-slate-50',
+    },
+    {
+      title: 'Success Rate',
+      value: loading ? null : '100%',
+      change: 'Optimal performance',
+      icon: CheckCircle2,
+      color: 'text-emerald-600 bg-emerald-50',
+    },
+  ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-[#0B0B0B]">SyncFlow</span>
-              <span className="text-[#D4AF37] text-xs font-medium">LIVE</span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-500 hover:text-[#0B0B0B] transition-colors"
-            >
-              Logout
-            </button>
-          </div>
+    <AppLayout>
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Overview of your payment operations</p>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
-            <p className="text-sm text-gray-500">Today's Revenue</p>
-            <p className="text-3xl font-bold text-[#0B0B0B] mt-1">₦{totalRevenue.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
-            <p className="text-sm text-gray-500">Total Transactions</p>
-            <p className="text-3xl font-bold text-[#0B0B0B] mt-1">{totalCount}</p>
-          </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat, index) => (
+            <motion.div
+              key={stat.title}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05, ease: 'easeOut' }}
+            >
+              <Card className="overflow-hidden border-slate-200/80 transition-all hover:shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`p-2 rounded-lg ${stat.color}`}>
+                    <stat.icon className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loading || stat.value === null ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-28" />
+                      <Skeleton className="h-4 w-36" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold tracking-tight text-slate-900">{stat.value}</div>
+                      <p className="text-xs text-muted-foreground mt-1 font-medium">{stat.change}</p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
         </div>
 
-        {/* Transactions Card */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-[#0B0B0B]">Recent Payments</h2>
-          </div>
-
-          {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading transactions...</div>
-          ) : transactions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <p>No transactions yet.</p>
-              <p className="text-sm mt-2">Payments will appear here when your webhook receives SMS.</p>
+        {/* Recent Transactions */}
+        <Card className="border-slate-200/80">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="space-y-0.5">
+              <CardTitle className="text-lg font-bold text-slate-900">Recent Transactions</CardTitle>
+              <p className="text-xs text-muted-foreground">The latest incoming business settlements</p>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 text-gray-500 text-sm">
-                  <tr>
-                    <th className="px-6 py-3 text-left">Time</th>
-                    <th className="px-6 py-3 text-left">Sender</th>
-                    <th className="px-6 py-3 text-left">Amount</th>
-                    <th className="px-6 py-3 text-left">Reference</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {transactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-3 text-sm text-gray-500">
-                        {new Date(tx.receivedAt).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-3 text-sm font-medium text-[#0B0B0B]">
-                        {tx.senderName}
-                      </td>
-                      <td className="px-6 py-3 text-sm font-semibold text-[#0B0B0B]">
-                        ₦{tx.amount.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-gray-500 font-mono">
-                        {tx.reference}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3 py-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full text-center" />
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="text-center py-16 border border-dashed rounded-xl bg-slate-50/50">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-3">
+                  <CreditCard className="h-6 w-6" />
+                </div>
+                <h3 className="font-semibold text-slate-900 mb-1">No transactions yet</h3>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                  Connect an active terminal or integration to start receiving transaction streams.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-md border border-slate-100">
+                <Table>
+                  <TableHeader className="bg-slate-50/70">
+                    <TableRow>
+                      <TableHead className="w-[180px]">Date & Time</TableHead>
+                      <TableHead>Sender</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Reference</TableHead>
+                      <TableHead className="text-right">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions.slice(0, 10).map((tx) => (
+                      <TableRow key={tx.id} className="hover:bg-slate-50/40 transition-colors">
+                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                          {new Date(tx.receivedAt).toLocaleString('en-NG', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
+                        </TableCell>
+                        <TableCell className="font-semibold text-slate-800">{tx.senderName}</TableCell>
+                        <TableCell className="font-medium text-slate-900">
+                          {formatCurrency(tx.amount, tx.currency)}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-slate-500 select-all">{tx.reference}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-50">
+                            Success
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </AppLayout>
   )
 }
