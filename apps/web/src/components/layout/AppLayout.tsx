@@ -95,7 +95,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
               )}
-              <item.icon className={cn("h-4.5 w-4.5 shrink-0 transition-transform group-hover:scale-102", active ? "text-[#D4AF37]" : "text-slate-400 group-hover:text-slate-600")} />
+              <item.icon className={cn("h-4.5 w-4.5 shrink-0 transition-transform group-hover:scale-105", active ? "text-[#D4AF37]" : "text-slate-400 group-hover:text-slate-600")} />
               {item.name}
             </Link>
           )
