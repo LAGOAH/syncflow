@@ -17,4 +17,5 @@ model Transaction {
   status      String   @default("SUCCESSFUL")
   receivedAt  DateTime @default(now())
   createdAt   DateTime @default(now())
+  userId      String   // 👈 Add this line – links to Supabase Auth user
 }
