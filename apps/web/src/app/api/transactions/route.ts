@@ -1,10 +1,24 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from '@supabase/ssr';
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    // Create a Supabase client using the request cookies
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set() { /* not needed for GET */ },
+          remove() { /* not needed */ },
+        },
+      }
+    );
+
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
