@@ -1,40 +1,59 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabaseClient'
+import { useRouter } from 'next/navigation'
 
 type Transaction = {
-  id: string;
-  amount: number;
-  currency: string;
-  senderName: string;
-  reference: string;
-  receivedAt: string;
-};
+  id: string
+  amount: number
+  currency: string
+  senderName: string
+  reference: string
+  receivedAt: string
+}
 
 export default function Dashboard() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    fetch("/api/transactions")
-      .then((res) => res.json())
-      .then((data) => {
-        setTransactions(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, []);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        router.push('/login')
+      } else {
+        setUser(user)
+        fetchTransactions()
+      }
+    })
+  }, [router])
 
-  const totalRevenue = transactions.reduce((sum, t) => sum + t.amount, 0);
-  const totalCount = transactions.length;
+  const fetchTransactions = async () => {
+    const res = await fetch('/api/transactions')
+    const data = await res.json()
+    setTransactions(data)
+    setLoading(false)
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  if (!user) return <div className="p-8">Loading...</div>
+
+  const totalRevenue = transactions.reduce((sum, t) => sum + t.amount, 0)
+  const totalCount = transactions.length
 
   return (
     <main className="min-h-screen bg-slate-100 p-8">
       <div className="mx-auto max-w-5xl">
-        <h1 className="text-4xl font-bold">SyncFlow</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-4xl font-bold">SyncFlow</h1>
+          <button onClick={handleLogout} className="bg-black text-white px-4 py-2 rounded">Logout</button>
+        </div>
         <p className="mt-2 text-slate-600">Payment Operations Dashboard</p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -81,5 +100,5 @@ export default function Dashboard() {
         </div>
       </div>
     </main>
-  );
+  )
 }
