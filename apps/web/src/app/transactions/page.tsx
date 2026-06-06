@@ -1,53 +1,92 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'next/navigation'
-import AppLayout from '@/components/layout/AppLayout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+import AppLayout from '@/components/layout/AppLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
 
 type Transaction = {
-  id: string
-  amount: number
-  currency: string
-  senderName: string
-  reference: string
-  receivedAt: string
-}
+  id: string;
+  amount: number;
+  currency: string;
+  senderName: string;
+  reference: string;
+  receivedAt: string;
+};
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const router = useRouter()
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) router.push('/login')
-      else fetchTransactions()
-    })
-  }, [router])
+    console.log('TransactionsPage: useEffect running');
+    const checkAuthAndFetch = async () => {
+      console.log('TransactionsPage: Checking auth...');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.log('TransactionsPage: Auth failed, redirecting to login', userError);
+        router.push('/login');
+        return;
+      }
+
+      console.log('TransactionsPage: User authenticated, fetching transactions');
+      await fetchTransactions();
+    };
+
+    checkAuthAndFetch();
+  }, [router]);
 
   const fetchTransactions = async () => {
+    console.log('TransactionsPage: fetchTransactions called');
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch('/api/transactions')
-      const data = await res.json()
-      setTransactions(data)
+      const res = await fetch('/api/transactions');
+      console.log(`TransactionsPage: fetch response status: ${res.status}`);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`TransactionsPage: API error ${res.status}:`, errorText);
+        setError(`Failed to load transactions. Status: ${res.status}. ${errorText}`);
+        setLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      console.log(`TransactionsPage: Fetched ${data.length} transactions`);
+      setTransactions(data);
     } catch (err) {
-      console.error(err)
+      console.error('TransactionsPage: Fetch error', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
+  };
+
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <h2 className="font-semibold">Error Loading Transactions</h2>
+          <p className="text-sm">{error}</p>
+        </div>
+      </AppLayout>
+    );
   }
 
   const filtered = transactions.filter(tx =>
     tx.senderName.toLowerCase().includes(search.toLowerCase()) ||
     tx.reference.toLowerCase().includes(search.toLowerCase())
-  )
+  );
 
   return (
     <AppLayout>
@@ -59,7 +98,7 @@ export default function TransactionsPage() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <CardTitle>All Transactions</CardTitle>
               <div className="relative w-64">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -74,7 +113,7 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8">Loading...</div>
+              <div className="text-center py-8 text-muted-foreground">Loading transactions...</div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">No transactions found</div>
             ) : (
@@ -107,5 +146,5 @@ export default function TransactionsPage() {
         </Card>
       </div>
     </AppLayout>
-  )
+  );
 }
