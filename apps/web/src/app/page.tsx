@@ -39,7 +39,9 @@ export default function DashboardPage() {
 
   const fetchTransactions = async () => {
     try {
-      const res = await fetch('/api/transactions')
+      const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    const res = await fetch('/api/transactions', { headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) throw new Error('Failed to fetch data')
       const data = await res.json()
       setTransactions(data)
